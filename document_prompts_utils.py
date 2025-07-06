@@ -70,9 +70,12 @@ def embeddings_texts(splites:list[str])->list[int]:
         model_kwargs=model_kwargs,
         encode_kwargs=encode_kwargs
      )
-     embeddings_texts = []   
+     embeddings_texts = []
      for query in splites:
-         embeddings_texts.append(hf.embed_querylitt(query))
+         # HuggingFaceEmbeddings exposes `embed_query` for encoding a single
+         # string. The previous call to `embed_querylitt` was a typo and
+         # results in an AttributeError at runtime.
+         embeddings_texts.append(hf.embed_query(query))
 
      return embeddings_texts
 

@@ -1,10 +1,12 @@
 import os
-from dotenv import load_dotenv 
+from dotenv import load_dotenv
 from langchain_community.llms import HuggingFaceEndpoint # type: ignore
 from langchain_core.runnables import RunnablePassthrough , RunnableParallel
 from document_prompts_utils import prompt , text_splitter
 from semantic_similarity_utils import vector_db as vector_db_
 from memory_utils import chat
+
+load_dotenv()
 
 def format_docs(docs):
     return "\n".join(doc.page_content for doc in docs)
@@ -14,10 +16,12 @@ def get_completion(prompt:str, llm):
 
 
 def Llm_EndPoint():
-    llm = HuggingFaceEndpoint(repo_id="mistralai/Mistral-7B-Instruct-v0.3",
-                          max_new_tokens=1000,
-                          huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKN"),
-                          )
+    llm = HuggingFaceEndpoint(
+        repo_id="mistralai/Mistral-7B-Instruct-v0.3",
+        max_new_tokens=1000,
+        # use the same environment variable name as the other modules
+        huggingfacehub_api_token=os.getenv("HUGGINGFACEHUB_API_TOKEN"),
+    )
     return llm
 
 def invoke_with_source(llm, db, query:str, k:int=3):
@@ -41,19 +45,30 @@ def Chatbot(llm, embedding_model, question, context="",
             chunk_size:int=2000, chunk_overlap:int=200 ,
             separators:list[str] =["\n\n", "\n", " ", ""], add_to_history=True, chat_history=[]):
 
-    if context != "" and vector_db == None:
-         
-         if do_spilting:
-            text_splitte = text_splitter(text=context,type=type,chunk_size=chunk_size,chunk_overlap=chunk_overlap,separators=separators)
-         else :  
+    if context != "" and vector_db is None:
+
+        if do_spilting:
+            text_splitte = text_splitter(
+                text=context,
+                type=type,
+                chunk_size=chunk_size,
+                chunk_overlap=chunk_overlap,
+                separators=separators,
+            )
+        else:
             text_splitte = [context]
 
-         db = vector_db_(text=text_splitte,embdedding=embedding_model)
+        db = vector_db_(text=text_splitte, embdedding=embedding_model)
+        vector_db = db
+    else:
+        # if a precomputed vector DB is provided or no context is supplied,
+        # use it directly
+        db = vector_db
 
-         vector_db = db
-       
-    retrieval_db = db.as_retriever(search_type=search_type, 
-                               search_kwargs={"k": k})
+    retrieval_db = db.as_retriever(
+        search_type=search_type,
+        search_kwargs={"k": k},
+    )
     
     result, chat_history = chat(llm, question=question,retriever=retrieval_db,
          chat_history=chat_history, add_to_history=add_to_history)
